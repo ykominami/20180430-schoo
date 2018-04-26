@@ -1,0 +1,91 @@
+#
+# 設定ファイルの書き方については以下の公式ドキュメントにすべての説明が載っていますので、参考にしてください
+# https://circleci.com/docs/2.0/configuration-reference/
+#
+version: 2
+jobs:
+  #
+  # ビルドジョブを build という名前で定義しています
+  #
+  build:
+    docker:
+      #
+      # ビルドジョブの実行環境としてどのDockerイメージを使うかを設定しています
+      # あなたのアプリケーションの実装言語などに合わせて適切な環境を設定してください
+      # CircleCI公式のDockerイメージの一覧は https://circleci.com/docs/2.0/circleci-images/ こちらにあります
+      # dockerhub.com で公開されているDockerイメージであれば、CircleCI公式のものでなくとも利用可能です
+      #
+      - image: circleci/php
+
+    steps:
+      #
+      # GitHubからコードをcheckoutします
+      #
+      - checkout
+
+      #
+      # run:
+      #   command: <コマンド>
+      # で任意のコマンドを実行できます
+      # 例えばPHPのプロジェクトでユニットテストを実行したい場合は以下のように書けばよいでしょう
+      #
+      # - run:
+      #     command: phpunit
+      #
+      - run:
+          command: echo 'there are no tests yet'
+
+  #
+  # デプロイジョブを deploy という名前で定義しています
+  #
+  deploy:
+    docker:
+      #
+      # Capistranoの実行にはrubyが必要なので、デプロイジョブの実行環境にはrubyのDockerイメージを使います
+      #
+      - image: circleci/ruby
+
+    steps:
+      #
+      # GitHubからコードをcheckoutします（デプロイするのにもCapistranoの設定ファイルは必要なので）
+      #
+      - checkout
+
+      #
+      # CircleCiのプロジェクト設定画面で登録したSSH鍵のフィンガープリントを指定しています
+      # これにより、当該SSH鍵がジョブの実行環境内に展開され、sshコマンド使用時にこの鍵が使われるようになります
+      #
+      # あなたのCircleCIのプロジェクト設定画面で登録したSSH鍵のフィンガープリントに置き換えてください
+      #
+      - add_ssh_keys:
+          fingerprints:
+            - CircleCIのプロジェクト設定画面で登録したSSH鍵のフィンガープリントをここに設定
+
+      #
+      # deploy:
+      #   command: <コマンド>
+      # で任意のデプロイ用コマンドを実行できます
+      # run と違って、これ以前のすべての処理が成功した場合にしか実行されません（テストが失敗した場合はデプロイされない）
+      #
+      # 以下のように "|" から始めると複数行のコマンドを設定することもできます
+      # ここでは、ビルド対象のブランチが master である場合のみ処理するようにしてあります（masterブランチのみデプロイ対象とする）
+      #
+      - deploy:
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              gem install capistrano
+              cap production deploy
+            fi
+
+#
+# 上記で定義した各ジョブを、並列ではなく直列に実行させたい（ビルドジョブを実行したあとでデプロイジョブを実行させたい）ので
+# "ワークフロー" としてジョブ同士の依存関係を定義します
+#
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
